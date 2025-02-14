@@ -1,3 +1,5 @@
+// Define the URL of the Artifactory registry
+def registry = 'https://trialpihnaz.jfrog.io/'
 pipeline {
  agent any
  environment {
@@ -7,7 +9,7 @@ pipeline {
          stage('build') {
            steps { 
                   echo "---build started---"
-                  sh 'mvn clean package -Dmaven.test.skip=true'
+                  sh 'mvn clean deploy -Dmaven.test.skip=true'
                   echo "---build completely---"
                  }
                }
@@ -28,6 +30,31 @@ pipeline {
               } 
                 }
                }
+         stage("Jar Publish") { 
+           steps { 
+             script {
+              echo ' < --- jar publish started --- > '
+              def server = Artifactory.newServer url: registry + "/artifactory", credentialId: "artifact-cred"
+              def properties = "buildid=${env.BUILD_ID},commited=${GIT_COMMIT}"
+              def uploadSpec = """ { 
+                "files":[
+                { 
+                "pattern":"jarstaging/(*)",
+                "target":"sai-libs-release-local/{1}",
+                "flat":"false",
+                "props":"${properties}",
+                "exclusions":["*.sha1","*.md5"]
+                }
+                ]
+                } """
+             def buildInfo=server.upload(uploadSpec)
+              buildInfo.env.collect()
+              server.publishBuildInfo(buildInfo)
+
+              echo ' < --- jar publish ended --- > '
+             }
+           }
+         }
               }
         }
 
